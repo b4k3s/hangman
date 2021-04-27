@@ -27,7 +27,7 @@ wrongArray      byte    7   DUP(0)
 rightArray      byte    26  DUP(0)
 
 ; Words to Guess
-numOfWords      byte    16
+numOfWords      byte    60
 word00          byte    "DINOSAUR",0
 word01          byte    "BANJO",0
 word02          byte    "BIKINI",0
@@ -44,6 +44,61 @@ word12          byte    "LUCKY",0
 word13          byte    "RHYTHM",0
 word14          byte    "SUBWAY",0
 word15          byte    "WITCHCRAFT",0
+word16          byte    "VORTEX",0
+word17          byte    "WRISTWATCH",0
+word18          byte    "SWIVEL",0
+word19          byte    "KNAPSACK",0
+word20          byte    "QUARTZ",0
+word21          byte    "PAJAMAS",0
+word22          byte    "JACKPOT",0
+word23          byte    "BOOKWORM",0
+word24          byte    "ZODIAC",0
+word25          byte    "AVENUE",0
+word26          byte    "TRANSCRIPT",0
+word27          byte    "DAIQUIRI",0
+word28          byte    "BEEKEEPER",0
+word29          byte    "AWKWARD",0
+word30          byte    "FISHHOOK",0
+word31          byte    "BAGPIPES",0
+word32          byte    "JELLY",0
+word33          byte    "JAWBREAKER",0
+word34          byte    "JUICY",0
+word35          byte    "JACKPOT",0
+word36          byte    "PEEKABOO",0
+word37          byte    "UNKNOWN",0
+word38          byte    "KLUTZ",0
+word39          byte    "OXYGEN",0
+word40          byte    "PIXEL",0
+word41          byte    "VAPORIZE",0
+word42          byte    "COBWEB",0
+word43          byte    "YUMMY",0
+word44          byte    "ZOMBIE",0
+word45          byte    "ZIGZAG",0
+word46          byte    "ZIPPER",0
+word47          byte    "SPHINX",0
+word48          byte    "QUIZ",0
+word49          byte    "PUPPY",0
+word50          byte    "MICROWAVE",0
+word51          byte    "FLUFFY",0
+word52          byte    "CROQUET",0
+word53          byte    "AVENUE",0
+word54          byte    "PNEUMONIA",0
+word55          byte    "GNARLY",0
+word56          byte    "KEYHOLE",0
+word57          byte    "LUXURY",0
+word58          byte    "MEGAHERTZ",0
+word59          byte    "YOUTH",0
+
+wordBank        dword   word00,word01,word02,word03,word04,word05
+                dword   word06,word07,word08,word09,word10,word11
+                dword   word12,word13,word14,word15,word16,word17
+                dword   word18,word19,word20,word21,word22,word23
+                dword   word24,word25,word26,word27,word28,word29
+                dword   word30,word31,word32,word33,word34,word35
+                dword   word36,word37,word38,word39,word40,word41
+                dword   word42,word43,word44,word45,word46,word47
+                dword   word48,word49,word50,word51,word52,word53
+                dword   word54,word55,word56,word57,word58,word59
 
 ; String of spaces for clearing screen
 clearStr        byte    "                                  ",0dh,0ah,0
@@ -136,14 +191,13 @@ CreditScreen:
 
 QuitGame:
     call ClearScreen                ; Clear the screen
+
     exit
 main ENDP
 
-
-
 ;--------------------------------------------------------------------------
 PrintMenu PROC
-; Author: Team C
+; Author: Luke Shoff
 ;
 ; Prints the menu screen with prompt.
 ;
@@ -164,7 +218,7 @@ PrintMenu ENDP
 
 ;--------------------------------------------------------------------------
 PrintCredits PROC
-; Author: Team C
+; Author: Brendon Stutzman
 ;
 ; Prints the team credits screen with prompt.
 ;
@@ -185,101 +239,26 @@ PrintCredits ENDP
 
 ;--------------------------------------------------------------------------
 GetWord PROC
-; Author: Anthony Cardona
+; Author: Christian Baker
 ;
-; Desc TODO
 ;
-; Registers used: AX
-; Returns: 
+;
 ;--------------------------------------------------------------------------
     mov  al,numOfWords
     call Randomize
     call RandomRange
-
-W00:
-    cmp  al, 0
-    jne  W01
-    invoke Str_copy, addr word00, addr theWord
-    jmp  goback
-W01:
-    cmp  al, 1 
-    jne  W02
-    invoke Str_copy, addr word01, addr theWord
-    jmp  goback
-W02:
-    cmp  al, 2 
-    jne  W03
-    invoke Str_copy, addr word02, addr theWord
-    jmp  goback
-W03:
-    cmp  al, 3 
-    jne  W04
-    invoke Str_copy, addr word03, addr theWord
-    jmp  goback
-W04:
-    cmp  al, 4 
-    jne  W05
-    invoke Str_copy, addr word04, addr theWord
-    jmp  goback
-W05:
-    cmp  al, 5 
-    jne  W06
-    invoke Str_copy, addr word05, addr theWord
-    jmp  goback
-W06:
-    cmp  al, 6 
-    jne  W07
-    invoke Str_copy, addr word06, addr theWord
-    jmp  goback
-W07:
-    cmp  al, 7 
-    jne  W08
-    invoke Str_copy, addr word07, addr theWord
-    jmp  goback
-W08:
-    cmp  al, 8 
-    jne  W09
-    invoke Str_copy, addr word08, addr theWord
-    jmp  goback
-W09:
-    cmp  al, 9 
-    jne  W10
-    invoke Str_copy, addr word09, addr theWord
-    jmp  goback
-W10:
-    cmp  al, 10 
-    jne  W11
-    invoke Str_copy, addr word10, addr theWord
-    jmp  goback
-W11:
-    cmp  al, 11 
-    jne  W12
-    invoke Str_copy, addr word11, addr theWord
-    jmp  goback
-W12:
-    cmp  al, 12 
-    jne  W13
-    invoke Str_copy, addr word12, addr theWord
-    jmp  goback
-W13:
-    cmp  al, 13 
-    jne  W14
-    invoke Str_copy, addr word13, addr theWord
-    jmp  goback
-W14:
-    cmp  al, 14 
-    jne  W15
-    invoke Str_copy, addr word14, addr theWord
-    jmp  goback
-W15:
-    invoke Str_copy, addr word15, addr theWord
-goback:
+    mov ebx,4
+    mul ebx
+    mov esi,OFFSET wordBank
+    add esi,eax
+    mov edi,[esi]
+    invoke Str_copy, addr [edi], addr theWord
     ret
 GetWord ENDP
 
 ;--------------------------------------------------------------------------
 PrintHangman PROC USES edx eax
-; Author: Team C
+; Author: Anthony Cardona
 ;
 ; Prints the ASCII hangman character. Checks to see which parts to print
 ; based on how many wrong letter guesses that the user has made.
