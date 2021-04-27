@@ -2,7 +2,7 @@ TITLE Hangman         (Hangman.asm)
 
 ; Desc TODO
 
-;-------------------------------------------------------------------------
+;--------------------------------------------------------------------------
 INCLUDE Irvine32.inc
 ; We made use of the following procedures from Kip Irvine's library:
 ;
@@ -14,7 +14,7 @@ INCLUDE Irvine32.inc
 ;   Str_copy        - 
 ;   Randomize       - 
 ;   RandomRange     - 
-;-------------------------------------------------------------------------
+;--------------------------------------------------------------------------
 
 .data
 theWord         byte    15  DUP(0)
@@ -141,7 +141,7 @@ main ENDP
 
 
 
-;-------------------------------------------------------------------------
+;--------------------------------------------------------------------------
 PrintMenu PROC
 ; Author: Team C
 ;
@@ -149,20 +149,20 @@ PrintMenu PROC
 ;
 ; Registers used: AX, EDX
 ; Returns: Nothing
-;-------------------------------------------------------------------------
+;--------------------------------------------------------------------------
     call ClearScreen                ; Clear the screen
-    mov  al,5                       ; Newlines to print = 5
-    call NewLines                   ; Print newlines
+    mov  ecx,5                      ; Newlines to print = 5
+    call PrintNewLines              ; Print newlines
     mov  edx,OFFSET titleScr        ; Print hangman title and options
     call WriteString
-    mov  al,3                       ; Newlines to print = 3
-    call NewLines                   ; Print newlines
+    mov  ecx,3                      ; Newlines to print = 3
+    call PrintNewLines              ; Print newlines
     mov  edx,OFFSET select          ; Print make selection prompt string
     call WriteString
     ret
 PrintMenu ENDP
 
-;-------------------------------------------------------------------------
+;--------------------------------------------------------------------------
 PrintCredits PROC
 ; Author: Team C
 ;
@@ -170,20 +170,20 @@ PrintCredits PROC
 ;
 ; Registers used: AX, EDX
 ; Returns: Nothing
-;-------------------------------------------------------------------------
+;--------------------------------------------------------------------------
     call ClearScreen                ; Clears the screen
-    mov  al,5                       ; Prints 5 newlines
-    call NewLines
+    mov  ecx,5                      ; Prints 5 newlines
+    call PrintNewLines
     mov  edx,OFFSET madeBy          ; Prints our names
     call WriteString
-    mov  al,3                       ; Prints 3 newlines
-    call NewLines                   
+    mov  ecx,3                      ; Prints 3 newlines
+    call PrintNewLines                   
     mov  edx,OFFSET pressKey        ; Prints "Press Any Key"
     call WriteString
     ret
 PrintCredits ENDP
 
-;-------------------------------------------------------------------------
+;--------------------------------------------------------------------------
 GetWord PROC
 ; Author: Anthony Cardona
 ;
@@ -191,7 +191,7 @@ GetWord PROC
 ;
 ; Registers used: AX
 ; Returns: 
-;-------------------------------------------------------------------------
+;--------------------------------------------------------------------------
     mov  al,numOfWords
     call Randomize
     call RandomRange
@@ -277,16 +277,13 @@ goback:
     ret
 GetWord ENDP
 
-;-------------------------------------------------------------------------
-PrintHangman PROC
+;--------------------------------------------------------------------------
+PrintHangman PROC USES edx eax
 ; Author: Team C
 ;
 ; Prints the ASCII hangman character. Checks to see which parts to print
 ; based on how many wrong letter guesses that the user has made.
-;
-; Registers used: DX, AX, EDX
-; Returns: Nothing
-;-------------------------------------------------------------------------
+;--------------------------------------------------------------------------
     mov  dx,0                       ; Set cursor position to (0,0)
     call Gotoxy                     ; (Faster than clearing screen)
     mov  al,wrongGuesses            ; al <-- # of wrong guesses
@@ -294,7 +291,6 @@ PrintHangman PROC
     mov  edx,OFFSET gallowsTop      ; Print top part of gallows
     call WriteString
 
-TheHead:
     cmp  al,1                       ; If wrong guesses < 1...
     jl   TheNoose                   ; Then jump to TheNoose
     mov  edx,OFFSET manHead         ; EDX <-- manHead
@@ -304,12 +300,11 @@ TheNoose:
 Write1:
     call WriteString                ; Print line 1 option from EDX
 
-TheArms:
     cmp  al,4                       ; If wrong guesses < 4...
-    jl   TheArm                     ; Then jump to TheArm
+    jl   OneArm                     ; Then jump to OneArm
     mov  edx,OFFSET manArms         ; EDX <-- manArms
     jmp  Write2                     ; Jump to Write2
-TheArm:
+OneArm:
     cmp  al,3                       ; If wrong guesses < 3...
     jl   TheTorso                   ; Then jump to TheTorso
     mov  edx,OFFSET manArm          ; EDX <-- manArm
@@ -324,12 +319,11 @@ NoTorso:
 Write2:
     call WriteString                ; Print line 2 option from EDX
 
-TheLegs:
     cmp  al,6                       ; If wrong guesses < 6...
-    jl   TheLeg                     ; Then jump to TheLeg
+    jl   OneLeg                     ; Then jump to OneLeg
     mov  edx,OFFSET manLegs         ; EDX <-- manLegs
     jmp  Write3                     ; Jump to Write3
-TheLeg:
+OneLeg:
     cmp  al,5                       ; If wrong guesses < 5...
     jl   NoLegs                     ; Then jump to NoLegs
     mov  edx,OFFSET manLeg          ; EDX <-- manLeg
@@ -344,219 +338,164 @@ Write3:
     ret
 PrintHangman ENDP
 
-;-------------------------------------------------------------------------
+;--------------------------------------------------------------------------
 PrintWord PROC
 ; Author: Christian Baker
 ;
-;
-;
-;
-;-------------------------------------------------------------------------
-    pusha
-    mov  al,1
-    mov  gameDone,al
+; Fixed.
+;--------------------------------------------------------------------------
+    mov  al,1                       ;
+    mov  gameDone,al                ;
 
-    mov  esi,OFFSET theWord
-    mov  dh,[esi]
+    mov  esi,OFFSET theWord         ;
+    mov  dh,[esi]                   ;
     invoke Str_length, addr theWord ; eax <- length
-
-    mov  ecx,0
-
-outerloop:
-    cmp  cl,al
-    jge  endouterloop
-
+    mov  ecx,eax                    ;
+OL:
+    push ecx
     mov  edi,OFFSET rightArray
     mov  dl,[esi]
     mov  bl,rightGuesses
 
-    push ecx
-    mov  ecx,0
-
-    push ax
     mov  al,' '
     call WriteChar
-    pop  ax
 
-innerloop:
-    cmp  cl,bl
-    jge  endinnerloop
+    mov  cl,rightGuesses
+    cmp  cl,0
+    jle  UnderScore
 
+IL:
     mov  dh,[edi]
-
     cmp  dl,dh
-    jne  tryagain
-    push eax
+    jne  NextCmp
     mov  al,dl
     call WriteChar
-    pop  eax
-    jmp  contouterloop
-
-tryagain:
-    inc  ecx
+    jmp  NextLetter
+NextCmp:
     inc  edi
-    jmp  innerloop
-endinnerloop:
+    loop IL
 
-underscore:
-    push ax
+UnderScore:
     mov  al,'_'
     call WriteChar
-    mov  eax,0
+    mov  al,0
     mov  gameDone,al
-    pop  ax
 
-contouterloop:
-    pop  ecx
-
-    inc  ecx
+NextLetter:
     inc  esi
-    jmp  outerloop
-endouterloop:
+    pop  ecx
+    loop OL
 
-    mov  al,3
-    call Newlines
-    popa
+    mov  ecx,3
+    call PrintNewlines
     ret
 PrintWord ENDP
 
-;-------------------------------------------------------------------------
-PrintGuesses PROC
+;--------------------------------------------------------------------------
+PrintGuesses PROC USES eax ecx edx esi
 ; Author: Luke Shoff
 ;
 ;
-;-------------------------------------------------------------------------
-    pusha
+;--------------------------------------------------------------------------
     mov edx,OFFSET triedLetters
     call WriteString
     mov esi, OFFSET wrongArray
-    mov ecx, 0                      ; intialized Var i for loop
-    mov bl, wrongGuesses            ; moves wrongGuesses into bl reg
+    mov cl, wrongGuesses            ; moves wrongGuesses into cl reg
+    cmp cl,0
+    jle ExitLoop
 
-startTheSequal:
-    cmp cl, bl                      ; compares reg
-    jge ExitLoop                    ; ends loop if 
-
+L1:
     mov al,[esi]                    ; put char of wrongArray in al
     call WriteChar
 
-    mov dl,wrongGuesses
-    dec dl
-    cmp cl, dl                      ; compare cl and wrongGuesses
-    je elseTheSequal    
-
+    cmp cl,1                        ; If last iteration...
+    je ExitLoop                     ; Jump to skip printing comma
     mov  al,','
     call WriteChar
     mov  al,' '
     call WriteChar
-
-elseTheSequal:
-    inc ecx                         ; add one to i
-    inc esi                         ; shifts to next char
-    jmp startTheSequal              ; go to start of loop
+    inc  esi                        ; shifts to next char
+    loop L1                         ; go to start of loop
 
 ExitLoop:
-    mov al,2
-    call NewLines
-    popa
+    mov  ecx,2
+    call PrintNewLines
     ret
 PrintGuesses ENDP
 
-;-------------------------------------------------------------------------
+;--------------------------------------------------------------------------
 CheckChar PROC
 ; Author Christian Baker
 ;
-; First, shecks whether the character in the AL register is a lowercase
+; First, checks whether the character in the AL register is a lowercase
 ; alphabet letter. If it is, converts to uppercase. Then, checks whether
 ; character is an alphabet character.
-;
-;-------------------------------------------------------------------------
-convert:
-    cmp  al,'z'
+;--------------------------------------------------------------------------
+    mov  bl,al
+    cmp  bl,'z'
     jg   exitcheck
-    cmp  al,'a'
+    cmp  bl,'a'
     jl   uppercase
-
-    sub  eax,32
+    sub  bl,32
 
 uppercase:
-    cmp  al,'Z'
+    cmp  bl,'Z'
     jg   exitcheck
-    cmp  al,'A'
+    cmp  bl,'A'
     jl   exitcheck
 
     mov  esi,OFFSET rightArray
-    mov  bl,rightGuesses
-
-    mov  ecx,0
+    mov  cl,rightGuesses
+    cmp  cl,0
+    jle  S2
 
 L1:
-    cmp  cl,bl
-    jge  S2
-
     mov  dl,[esi]
-
-    cmp  al,dl
+    cmp  bl,dl
     je   exitcheck
-    inc  ecx
     inc  esi
-    jmp  L1
+    loop L1
 
 S2:
     mov  esi,OFFSET rightArray
     mov  edi,OFFSET theWord
-    push eax
     invoke Str_length, addr theWord
-    mov  bl,al
-    pop  eax
-
-    mov  ecx,0
+    mov  ecx,eax
 
 L2:
-    cmp  cl,bl
-    jge  S3
-
     mov  dl,[edi]
-
-    cmp  al,dl
+    cmp  bl,dl
     jne  nextchar
     mov  edx,0
     mov  dl,rightGuesses
     add  esi,edx
-    mov  [esi],al
+    mov  [esi],bl
     inc  dl
     mov  rightGuesses,dl
     jmp  exitcheck
-
 nextchar:
-    inc  ecx
     inc  edi
-    jmp  L2
+    loop L2
 
 S3:
     mov  esi,OFFSET wrongArray
-    mov  bl,wrongGuesses
-
-    mov  ecx,0
+    mov  cl,wrongGuesses
+    cmp  cl,0
+    jle  itswrong
 
 L3:
-    cmp  cl,bl
-    jge  itswrong
-
     mov  dl,[esi]
-
-    cmp  al,dl
+    cmp  bl,dl
     je   exitcheck
-    inc  ecx
     inc  esi
-    jmp  L3
+    loop L3
 
 itswrong:
     mov  esi,OFFSET wrongArray
     mov  edx,0
     mov  dl,wrongGuesses
     add  esi,edx
-    mov  [esi],al
+    mov  [esi],bl
     inc  dl
     mov  wrongGuesses,dl
 
@@ -569,16 +508,16 @@ exitcheck:
     ret
 CheckChar ENDP
 
-;-------------------------------------------------------------------------
+;--------------------------------------------------------------------------
 PrintEnd PROC
 ; Author: Brendon Stutzman
 ;
 ; Prints a winner or loser screen based on the outcome of the game, then
 ; reveals what the word to be guessed was.
-;-------------------------------------------------------------------------
+;--------------------------------------------------------------------------
     call ClearScreen                ; Clear the screen
-    mov  AL, 5                      ; Print 5 newlines
-    call NewLines
+    mov  ecx, 5                     ; Print 5 newlines
+    call PrintNewLines
     mov  AL, wrongGuesses
     cmp  AL, 6                      ; If wrong < 6...
     jle  youwin                     ; Then jump to youwin
@@ -591,70 +530,52 @@ youwin:
     call WriteString
 
 revealword:
-    mov  AL, 2                      ; Print 2 newlines
-    call NewLines
+    mov  ecx, 2                     ; Print 2 newlines
+    call PrintNewLines
     mov  EDX, OFFSET wordWas        ; Print "The word was"
     call WriteString
     mov  EDX, OFFSET theWord        ; Print the word to guess
     call WriteString
-    mov  AL, 5                      ; Print 5 newlines
-    call NewLines
+    mov  ecx, 5                     ; Print 5 newlines
+    call PrintNewLines
     mov  EDX, OFFSET pressKey       ; Print "Press any key"
     call WriteString
     ret
 PrintEnd ENDP
 
-;-- EXTRA UTILITY PROCEDURES ---------------------------------------------
+;-- EXTRA UTILITY PROCEDURES ----------------------------------------------
 
-;-------------------------------------------------------------------------
-ClearScreen PROC
+;--------------------------------------------------------------------------
+ClearScreen PROC USES ecx edx
 ; Author: Christian Baker
 ;
 ; Clears only the lines that are used in the program. This was needed
 ; because the Clrscr procedure in the Irvine Library that clears the
 ; entire window was lagging badly.
-;
-; Registers used: CX, EDX
-;-------------------------------------------------------------------------
-    mov  ch,15                      ; Lines to print
-    mov  cl,0                       ; i = 0
+;--------------------------------------------------------------------------
+    mov  ecx,15                     ; i = 15
     mov  dx,0                       ; Move cursor to (0,0)
     call Gotoxy
+    mov  edx,OFFSET clearStr        ; edx <-- clearString
+L1:
+    call WriteString                ; Print clearString from edx
+    loop L1                         ; Loop back to ClearIt
 
-ClearIt:
-    cmp  cl,ch                      ; If i >= lines to print...
-    jge  ClearDone                  ; Then Jump to ClearDone
-    mov  edx,OFFSET clearStr        ; Else, print spaces over old text
-    call WriteString
-    inc  cl                         ; i++
-    jmp  ClearIt                    ; Loop back to ClearIt
-
-ClearDone:
     mov  dx,0                       ; Move cursor to (0,0)
     call Gotoxy
     ret
 ClearScreen ENDP
 
-;-------------------------------------------------------------------------
-NewLines PROC
+;--------------------------------------------------------------------------
+PrintNewLines PROC
 ; Author: Christian Baker
 ;
-; Prints the newlines as many times as the number that is in AX register.
-;
-; Registers used: AX, CX
-; Returns: Nothing
-;-------------------------------------------------------------------------
-    push cx                         ; Pushes CX register to stack
-    mov  cl, 0                      ; i = 0
-beginloop:
-    cmp  cl, al                     ; if (i >= number of newlines)...
-    jge  endloop                    ; then end loop
+; Prints the newlines as many times as the number that is in ECX register.
+;--------------------------------------------------------------------------
+L1:
     call Crlf                       ; Print newline
-    inc  cl                         ; i++
-    jmp  beginloop                  ; loop back
-endloop:
-    pop  cx                         ; Pops CX register from stack
+    loop L1                         ; loop back
     ret
-NewLines ENDP
+PrintNewLines ENDP
 
 END main
