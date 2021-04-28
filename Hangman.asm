@@ -6,14 +6,14 @@ TITLE Hangman         (Hangman.asm)
 INCLUDE Irvine32.inc
 ; We made use of the following procedures from Kip Irvine's library:
 ;
-;   WriteString     - Prints string starting with base address in EDX register
-;   WriteChar       - Prints char in the EAX register
-;   ReadChar        - Gets char from keyboard and stores in EAX register
 ;   Crlf            - Prints a newline
-;   Str_length      - 
-;   Str_copy        - 
-;   Randomize       - 
-;   RandomRange     - 
+;   Randomize       - Seeds the random number generator for RandomRange
+;   RandomRange     - Generates a rendom # between 0 and value in EAX reg
+;   ReadChar        - Gets char from keyboard and stores in EAX reg
+;   Str_copy        - Copies one string variable to another string variable
+;   Str_length      - Loads the length of a given string into the EAX reg
+;   WriteChar       - Prints char in the EAX register
+;   WriteString     - Prints string starting with base address in EDX reg
 ;--------------------------------------------------------------------------
 
 .data
@@ -26,7 +26,7 @@ gameDone        byte    0
 wrongArray      byte    7   DUP(0)
 rightArray      byte    26  DUP(0)
 
-; Words to Guess
+; Words to Guess (List made by Brendon Stutzman)
 numOfWords      byte    60
 word00          byte    "DINOSAUR",0
 word01          byte    "BANJO",0
@@ -104,7 +104,7 @@ wordBank        dword   word00,word01,word02,word03,word04,word05
 clearStr        byte    "                                  ",0dh,0ah,0
 
 ; Prompts and Messages
-select          byte    " Make a Selection: ",0
+makeSelect      byte    " Make a Selection: ",0
 pressKey        byte    " Press Any Key: ",0
 triedLetters    byte    " Already Tried: ",0
 chooseLetter    byte    " Choose a Letter: ",0
@@ -142,8 +142,7 @@ manLegs         byte    "  |    /\",0dh,0ah,0
 ; End Strings
 winner          byte    "        You Win! :)",0dh,0ah,0
 loser           byte    "        Game Over :(",0dh,0ah,0
-wordWas         byte    "       The word was",0dh,0ah
-                byte    "         ",0
+wordWas         byte    "       The word was",0dh,0ah,"         ",0
 
 .code
 main PROC
@@ -169,7 +168,7 @@ ContGame:
     call PrintHangman               ; Print ASCII hangman
     call PrintWord                  ; Print letters of the word
     call PrintGuesses               ; Print wrong letters tried
-    mov  edx,OFFSET chooseLetter    ; edx <- chooseLetter prompt string
+    mov  edx,OFFSET chooseLetter    ; edx <-- chooseLetter prompt string
     call WriteString                ; Print string (Irvine)
     mov  al,gameDone
     cmp  al,0
@@ -191,17 +190,15 @@ CreditScreen:
 
 QuitGame:
     call ClearScreen                ; Clear the screen
-
     exit
 main ENDP
 
 ;--------------------------------------------------------------------------
-PrintMenu PROC
+PrintMenu PROC USES ecx edx
 ; Author: Luke Shoff
 ;
 ; Prints the menu screen with prompt.
 ;
-; Registers used: AX, EDX
 ; Returns: Nothing
 ;--------------------------------------------------------------------------
     call ClearScreen                ; Clear the screen
@@ -211,18 +208,17 @@ PrintMenu PROC
     call WriteString
     mov  ecx,3                      ; Newlines to print = 3
     call PrintNewLines              ; Print newlines
-    mov  edx,OFFSET select          ; Print make selection prompt string
+    mov  edx,OFFSET makeSelect      ; Print make selection prompt string
     call WriteString
     ret
 PrintMenu ENDP
 
 ;--------------------------------------------------------------------------
-PrintCredits PROC
+PrintCredits PROC USES ecx edx
 ; Author: Brendon Stutzman
 ;
 ; Prints the team credits screen with prompt.
 ;
-; Registers used: AX, EDX
 ; Returns: Nothing
 ;--------------------------------------------------------------------------
     call ClearScreen                ; Clears the screen
