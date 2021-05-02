@@ -8,13 +8,16 @@ TITLE Hangman         (Hangman.asm)
 ;                     |___/                         ``````````
 ;                              Final Project
 ;
-; Version: 1.0
-; Authors: Team C (MASM)
-;   Christian Baker, Anthony Cardona, Luke Shoff, Brendon Stutzman
+; Version:      1.0
+; Group:        Team C (MASM)
+; Authors:      Christian Baker (Lead)
+;               Anthony Cardona
+;               Luke Shoff
+;               Brendon Stutzman
 ;
-; Class: CIS 121 - Assembly Language & Computer Architecture
-; Instructor: Professor Manuel Hidalgo
-; Date: 5 May 2021
+; Class:        CIS 121 - Assembly Language & Computer Architecture
+; Instructor:   Professor Manuel Hidalgo
+; Date:         5 May 2021
 ;
 ; Description:
 ;   Allows the user to play an ASCII art version of the classic game,
@@ -22,11 +25,16 @@ TITLE Hangman         (Hangman.asm)
 ;   game, quit the program, or see the credits for the game. The game
 ;   gives the user 7 wrong letter guesses to find the random word from
 ;   the hardcoded word bank. If the user guesses the word before reaching
-;   7 guesses, they win the game. If the user guesses 7 letters and has
-;   not found the word, they lose. All input is entered from the keyboard;
-;   any invalid input is ignored.
+;   7 guesses, they win the game. If the user guesses 7 wrong letters and
+;   has not found the word, they lose. All input is entered from the
+;   keyboard; any invalid input is ignored.
 ;
-;   * BA in code means base address
+;   * BA in comments stands for base address
+;
+;   Note: The length of our program is 416 lines of code in total
+;   without whitespace and comments, but about 1/4 of that is taken up
+;   by our string initializations due to the long, hardcoded list of
+;   words required for the game.
 ;
 ;--------------------------------------------------------------------------
 INCLUDE Irvine32.inc
@@ -430,12 +438,17 @@ Finish:
 PrintGuesses ENDP
 
 ;--------------------------------------------------------------------------
-CheckChar PROC USES ebx ecx edx esi edi
+CheckChar PROC
 ; Author Christian Baker
 ;
-; First, checks whether the character in the AL register is a lowercase
-; alphabet letter. If it is, the letter is converted to uppercase. Then,
-; checks whether character is an alphabet character.
+; Checks whether input is lowercase alphabet character. If it is,
+; character is converted to uppercase. Checks to make sure input is an
+; uppercase alphabet character. Checks if the user has already guessed
+; the character. Then, checks if the character is in the word. If it is,
+; it is added to the list of right guesses, and if it is not, it is added
+; to the list of wrong guesses. Finally, if the number of wrong guesses is
+; now, more than 7, then sets gameDone to true. If input is not an
+; alphabet character or it is a duplicate, it is ignored.
 ;
 ; Receives: EAX = user input
 ;--------------------------------------------------------------------------
@@ -473,8 +486,7 @@ RightCheck:
     mov  dl,[edi]                   ; DL  <-- curr char of theWord
     cmp  bl,dl                      ; If the input char != theWord char...
     jne  NextChar                   ; Then jump to NextChar
-    mov  edx,0
-    mov  dl,numOfRight            ; EDX <-- numOfRight (zero extended)
+    movzx edx,numOfRight            ; EDX <-- numOfRight (zero extended)
     add  esi,edx                    ; ESI += EDX, goto next open rightGuesses spot
     mov  [esi],bl                   ; Write input to rightGuesses array
     inc  dl                         ; Inc DL (increment num of right guessses)
@@ -498,8 +510,7 @@ DupWrong:
 
 AddWrong:
     mov  esi,OFFSET wrongGuesses    ; ESI <-- BA of wrongGuesses
-    mov  edx,0
-    mov  dl,numOfWrong            ; EDX <-- numOfWrong (zero extended)
+    movzx edx,numOfWrong            ; EDX <-- numOfWrong (zero extended)
     add  esi,edx                    ; ESI += EDX, goto next open wrongGuesses spot
     mov  [esi],bl                   ; Write input to wrongGuesses array
     inc  dl                         ; Inc DL (increment num of wrong guesses)
