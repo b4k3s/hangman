@@ -165,8 +165,8 @@ manLeg          byte    "  |    /",0dh,0ah,0
 manLegs         byte    "  |    /\",0dh,0ah,0
 
 ; End of Game Strings
-winner          byte    "        You Win! :)",0dh,0ah,0
-loser           byte    "        Game Over :(",0dh,0ah,0
+winnerMsg       byte    "        You Win! :)",0dh,0ah,0
+loserMsg        byte    "        Game Over :(",0dh,0ah,0
 wordWas         byte    "       The word was",0dh,0ah,"         ",0
 
 .code
@@ -183,7 +183,7 @@ MainMenu:
     jmp  MainMenu                   ; Else jump back to MainMenu
 
 PlayGame:
-    call ClearScreen
+    call ClearScreen                ; Clear the screen
     mov  eax,0                      ; Initialize input for game
     mov  gameDone,al                ; Set gameDone to false (0)
     mov  numOfRight,al              ; Set # of right guesses to 0
@@ -200,9 +200,9 @@ ContGame:
     jg   EndGame                    ; Then go to EndGame
     call ReadChar                   ; Get guessed letter from user
     call CheckChar                  ; Store char if eligible
-    mov  al,gameDone                ; AL <--gameDone
+    mov  al,gameDone                ; AL <-- gameDone
     cmp  al,1                       ; If gameDone is false...
-    jl   ContGame                    ; Then go to ContGame
+    jl   ContGame                   ; Then go to ContGame
 EndGame:
     call PrintEnd                   ; Print Win/Lose Screen
     call ReadChar                   ; Wait for input (Pause)
@@ -271,7 +271,7 @@ GetWord PROC USES eax ebx esi edi
     add  esi,eax                    ; ESI += EAX, Go to BA for chosen word
     mov  edi,[esi]                  ; EDI <-- Dereferenced BA
     invoke Str_copy,                ; Copy chosen word to theWord
-        addr [edi], addr theWord
+        addr [edi],addr theWord
     ret
 GetWord ENDP
 
@@ -284,7 +284,7 @@ PrintHangman PROC USES edx eax
 ;--------------------------------------------------------------------------
     mov  dx,0                       ; Set cursor position to (0,0)
     call Gotoxy                     ; (Faster than clearing screen)
-    mov  al,numOfWrong              ; AL <-- numOfWrong
+    mov  al,numOfWrong              ; AL  <-- numOfWrong
     mov  edx,OFFSET gallowsTop      ; EDX <-- BA of gallowsTop
     call WriteString                ; Print top part of gallows
 
@@ -339,55 +339,59 @@ Write3:
 PrintHangman ENDP
 
 ;--------------------------------------------------------------------------
-PrintWord PROC USES eax ecx edx 
+PrintWord PROC USES eax ecx edx esi edi
 ; Author: Christian Baker
 ;
-; Fixed.
+; Uses a nested loop to iterate through each character in theWord and
+; compares it to the correct characters guessed by the user. If it the
+; letter in the word is found in the correct guesses list, it will print
+; it out to the screen. If it is not found, it will instead print an
+; underscore, meaning it still needs to be guessed. If all characters
+; have been guessed, gameDone is set to true.
 ;--------------------------------------------------------------------------
-    mov  al,1                       ;
-    mov  gameDone,al                ;
+    mov  al,1                       ; Assume gameDone is true (1)...
+    mov  gameDone,al                ; until proven otherwise
 
-    mov  esi,OFFSET theWord         ;
-    mov  dh,[esi]                   ;
-    invoke Str_length, addr theWord ; eax <- length
-    mov  ecx,eax                    ;
+    mov  esi,OFFSET theWord         ; ESI <-- BA of theWord
+    mov  dh,[esi]                   ; DH  <-- first letter of theWord
+    invoke Str_length,addr theWord  ; EAX <-- # of chars in theWord
+    mov  ecx,eax                    ; ECX <-- EAX (outer counter)
 OuterLoop:
-    push ecx
-    mov  edi,OFFSET rightGuesses
-    mov  dl,[esi]
-    mov  bl,numOfRight
+    push ecx                        ; Push ECX to stack to save outer counter
+    mov  edi,OFFSET rightGuesses    ; EDI <-- BA of rightGuesses array
+    mov  dl,[esi]                   ; DL  <-- current letter of theWord
 
-    mov  al,' '
-    call WriteChar
+    mov  al,' '                     ; AL  <-- space char
+    call WriteChar                  ; Print space (for between characters)
 
-    mov  cl,numOfRight
-    cmp  cl,0
-    jle  UnderScore
+    mov  cl,numOfRight              ; CL  <-- # of right guesses (inner counter)
+    cmp  cl,0                       ; If no correct guesses yet...
+    jle  UnderScore                 ; Then jump to UnderScore
 
 InnerLoop:
-    mov  dh,[edi]
-    cmp  dl,dh
-    jne  NextCmp
-    mov  al,dl
-    call WriteChar
-    jmp  NextLetter
+    mov  dh,[edi]                   ; DH  <-- current letter from rightGuesses
+    cmp  dl,dh                      ; If theWord[outer] != rightGuesses[inner]...
+    jne  NextCmp                    ; Then jump to NextCmp
+    mov  al,dl                      ; AL <-- theWord[outer]
+    call WriteChar                  ; Print the current letter of theWord
+    jmp  NextLetter                 ; Jump to NextLetter
 NextCmp:
-    inc  edi
-    loop InnerLoop
+    inc  edi                        ; Inc EDI to next elem in rightGuesses
+    loop InnerLoop                  ; Dec ECX and Jump to InnerLoop
 
 UnderScore:
-    mov  al,'_'
-    call WriteChar
-    mov  al,0
-    mov  gameDone,al
+    mov  al,'_'                     ; AL  <-- underscore char
+    call WriteChar                  ; Print underscore (letter not guessed yet)
+    mov  al,0                       ; Set gameDone to false (0)...
+    mov  gameDone,al                ; b/c not all letters have been guessed
 
 NextLetter:
-    inc  esi
-    pop  ecx
-    loop OuterLoop
+    inc  esi                        ; Inc ESI to next letter of theWord
+    pop  ecx                        ; Pop from stack to ECX to get outer counter
+    loop OuterLoop                  ; Dec ECX and Jump to OuterLoop
 
-    mov  ecx,3
-    call PrintNewlines
+    mov  ecx,3                      ; Newlines to print = 3
+    call PrintNewlines              ; Print newlines
     ret
 PrintWord ENDP
 
@@ -395,151 +399,154 @@ PrintWord ENDP
 PrintGuesses PROC USES eax ecx edx esi
 ; Author: Luke Shoff
 ;
-;
+; Prints a list of the characters the user has already guessed. Each
+; character is separated by a comma and a space, unless it is the last
+; character in the list.
 ;--------------------------------------------------------------------------
-    mov edx,OFFSET triedLetters
-    call WriteString
-    mov esi, OFFSET wrongGuesses
-    mov cl, numOfWrong              ; moves wrongGuesses into cl reg
-    cmp cl,0
-    jle ExitLoop
+    mov edx,OFFSET triedLetters     ; EDX <-- triedLetters
+    call WriteString                ; Prints already tried message
+    mov  esi,OFFSET wrongGuesses    ; ESI <-- BA of wrongGuesse array
+    mov  cl,numOfWrong              ; CL  <-- numOfWrong
+    cmp  cl,0                       ; If there are no wrong guesses yet...
+    jle  Finish                     ; Jump to Finish
 
-L1:
-    mov al,[esi]                    ; put char of wrongArray in al
-    call WriteChar
+PrintLetter:
+    mov  al,[esi]                   ; AL  <-- current char of wrongGuesses
+    call WriteChar                  ; Print current char of wrongGuesses
 
-    cmp cl,1                        ; If last iteration...
-    je ExitLoop                     ; Jump to skip printing comma
-    mov  al,','
-    call WriteChar
-    mov  al,' '
-    call WriteChar
-    inc  esi                        ; shifts to next char
-    loop L1                         ; go to start of loop
+    cmp  cl,1                       ; If last iteration...
+    je   Finish                     ; Jump to Finish (skip printing comma)
+    mov  al,','                     ; AL  <-- comma char
+    call WriteChar                  ; Print comma
+    mov  al,' '                     ; AL  <-- space char
+    call WriteChar                  ; Print space
+    inc  esi                        ; Inc ESI to next guess in wrongGuesses
+    loop PrintLetter                ; Dec ECX and jump to PrintLetter
 
-ExitLoop:
-    mov  ecx,2
-    call PrintNewLines
+Finish:
+    mov  ecx,2                      ; Newlines to print = 2
+    call PrintNewLines              ; Print newlines
     ret
 PrintGuesses ENDP
 
 ;--------------------------------------------------------------------------
-CheckChar PROC
+CheckChar PROC USES ebx ecx edx esi edi
 ; Author Christian Baker
 ;
 ; First, checks whether the character in the AL register is a lowercase
-; alphabet letter. If it is, converts to uppercase. Then, checks whether
-; character is an alphabet character.
+; alphabet letter. If it is, the letter is converted to uppercase. Then,
+; checks whether character is an alphabet character.
+;
+; Receives: EAX = user input
 ;--------------------------------------------------------------------------
-    mov  bl,al
-    cmp  bl,'z'
-    jg   exitcheck
-    cmp  bl,'a'
-    jl   uppercase
-    sub  bl,32
+    mov  bl,al                      ; BL  <-- user input (to free up EAX)
+    cmp  bl,'z'                     ; If user input is greater than 'z'...
+    jg   EndCheck                   ; Then invalid char, jump to EndCheck
+    cmp  bl,'a'                     ; If user input is less than 'a'...
+    jl   UpperCheck                 ; then jump to UpperCheck
+    sub  bl,32                      ; Else, bl -= 32 to convert to upper
 
-uppercase:
-    cmp  bl,'Z'
-    jg   exitcheck
-    cmp  bl,'A'
-    jl   exitcheck
+UpperCheck:
+    cmp  bl,'Z'                     ; If user input is greater than 'Z'...
+    jg   EndCheck                   ; Then invalid char, jump to EndCheck
+    cmp  bl,'A'                     ; If user input is less than 'A'...
+    jl   EndCheck                   ; Then invalid char, jump to EndCheck
 
-    mov  esi,OFFSET rightGuesses
-    mov  cl,numOfRight
-    cmp  cl,0
-    jle  S2
+    mov  esi,OFFSET rightGuesses    ; ESI <-- BA of rightGuesses
+    mov  cl,numOfRight              ; CL  <-- numOfRightGuesses
+    cmp  cl,0                       ; If there are no right guesses yet...
+    jle  SetupNext                  ; Then Jump to SetupNext
 
-L1:
-    mov  dl,[esi]
-    cmp  bl,dl
-    je   exitcheck
-    inc  esi
-    loop L1
+DupRight:
+    mov  dl,[esi]                   ; DL  <-- curr char of rightGuesses
+    cmp  bl,dl                      ; If input is already in right array...
+    je   EndCheck                   ; Then duplicate char, jump to EndCheck
+    inc  esi                        ; Inc ESI to next char in rightGuesses
+    loop DupRight                   ; Dec ECX and jump to DupRight
 
-S2:
-    mov  esi,OFFSET rightGuesses
-    mov  edi,OFFSET theWord
-    invoke Str_length, addr theWord
-    mov  ecx,eax
-
-L2:
-    mov  dl,[edi]
-    cmp  bl,dl
-    jne  nextchar
+SetupNext:
+    mov  esi,OFFSET rightGuesses    ; ESI <-- BA of rightGuesses
+    mov  edi,OFFSET theWord         ; EDI <-- BA of theWord
+    invoke Str_length,addr theWord  ; EAX <-- # of chars in theWord
+    mov  ecx,eax                    ; ECX <-- EAX (for counter)
+RightCheck:
+    mov  dl,[edi]                   ; DL  <-- curr char of theWord
+    cmp  bl,dl                      ; If the input char != theWord char...
+    jne  NextChar                   ; Then jump to NextChar
     mov  edx,0
-    mov  dl,numOfRight
-    add  esi,edx
-    mov  [esi],bl
-    inc  dl
-    mov  numOfRight,dl
-    jmp  exitcheck
-nextchar:
-    inc  edi
-    loop L2
+    mov  dl,numOfRight            ; EDX <-- numOfRight (zero extended)
+    add  esi,edx                    ; ESI += EDX, goto next open rightGuesses spot
+    mov  [esi],bl                   ; Write input to rightGuesses array
+    inc  dl                         ; Inc DL (increment num of right guessses)
+    mov  numOfRight,dl              ; Write incremented value to numOfRight
+    jmp  EndCheck                   ; Input valid and recorded, jump to EndCheck
+NextChar:
+    inc  edi                        ; Inc EDI to move to next char in theWord
+    loop RightCheck                 ; Dec ECX and jump to RightCheck
 
-S3:
-    mov  esi,OFFSET wrongGuesses
-    mov  cl,numOfWrong
-    cmp  cl,0
-    jle  itswrong
+    mov  esi,OFFSET wrongGuesses    ; ESI <-- BA of wrongGuesses
+    mov  cl,numOfWrong              ; CL  <-- numOfWrong
+    cmp  cl,0                       ; If there are no wrong guesses yet...
+    jle  AddWrong                   ; Then jump to AddWrong
 
-L3:
-    mov  dl,[esi]
-    cmp  bl,dl
-    je   exitcheck
-    inc  esi
-    loop L3
+DupWrong:
+    mov  dl,[esi]                   ; DL  <-- curr char of wrongGuesses
+    cmp  bl,dl                      ; If input is already in wrong array...
+    je   EndCheck                   ; Then duplicate char, jump to EndCheck
+    inc  esi                        ; Inc ESI to next char in wrongGuesses
+    loop DupWrong                   ; Dec ECX and jump to DupWrong
 
-itswrong:
-    mov  esi,OFFSET wrongGuesses
+AddWrong:
+    mov  esi,OFFSET wrongGuesses    ; ESI <-- BA of wrongGuesses
     mov  edx,0
-    mov  dl,numOfWrong
-    add  esi,edx
-    mov  [esi],bl
-    inc  dl
-    mov  numOfWrong,dl
+    mov  dl,numOfWrong            ; EDX <-- numOfWrong (zero extended)
+    add  esi,edx                    ; ESI += EDX, goto next open wrongGuesses spot
+    mov  [esi],bl                   ; Write input to wrongGuesses array
+    inc  dl                         ; Inc DL (increment num of wrong guesses)
+    mov  numOfWrong,dl              ; Write incremented value to numOfWrong
 
-    cmp  dl,6
-    jle  exitcheck
-    mov  al,1
-    mov  gameDone,al
+    cmp  dl,6                       ; If numOfWrong < 6 (Less than 7 guesses)...
+    jle  EndCheck                   ; Then, jump to EndCheck
+    mov  al,1                       ; Else, set gameDone to true (1)
+    mov  gameDone,al                ; b/c user is out of guesses
 
-exitcheck:
+EndCheck:
     ret
 CheckChar ENDP
 
 ;--------------------------------------------------------------------------
-PrintEnd PROC
+PrintEnd PROC USES eax ecx edx
 ; Author: Brendon Stutzman
 ;
 ; Prints a winner or loser screen based on the outcome of the game, then
-; reveals what the word to be guessed was.
+; reveals what the word to be guessed was with key press prompt.
 ;--------------------------------------------------------------------------
     call ClearScreen                ; Clear the screen
-    mov  ecx, 5                     ; Print 5 newlines
-    call PrintNewLines
-    mov  AL, numOfWrong
-    cmp  AL, 6                      ; If wrong < 6...
-    jle  youwin                     ; Then jump to youwin
-    mov  EDX, OFFSET loser          ; Print loser message
-    call WriteString
-    jmp  revealword                 ; jump to revealword
+    mov  ecx,5                      ; Newlines to print = 5
+    call PrintNewLines              ; Print newlines
+    mov  al,numOfWrong              ; AL  <-- numOfWrong
 
-youwin:
-    mov  EDX, OFFSET winner         ; Print winner message
-    call WriteString
+UserLost:
+    cmp  al,6                       ; If numOfWrong < 6...
+    jle  UserWon                    ; Then jump to UserWon
+    mov  edx,OFFSET loserMsg        ; EDX <-- BA of loserMsg
+    call WriteString                ; Print the loser message
+    jmp  RevealWord                 ; jump to RevealWord
+UserWon:
+    mov  edx,OFFSET winnerMsg       ; EDX <-- BA of winnerMsg
+    call WriteString                ; Print the winner message
 
-revealword:
-    mov  ecx, 2                     ; Print 2 newlines
-    call PrintNewLines
-    mov  EDX, OFFSET wordWas        ; Print "The word was"
-    call WriteString
-    mov  EDX, OFFSET theWord        ; Print the word to guess
-    call WriteString
-    mov  ecx, 5                     ; Print 5 newlines
-    call PrintNewLines
-    mov  EDX, OFFSET pressKey       ; Print "Press any key"
-    call WriteString
+RevealWord:
+    mov  ecx,2                      ; Newlines to print = 2
+    call PrintNewLines              ; Print newlines
+    mov  edx,OFFSET wordWas         ; EDX <-- BA of wordWas
+    call WriteString                ; Print word was string
+    mov  edx,OFFSET theWord         ; EDX <-- BA of theWord
+    call WriteString                ; Print the word of the game
+    mov  ecx,5                      ; Newlines to print = 5
+    call PrintNewLines              ; Print newlines
+    mov  edx,OFFSET pressKey        ; EDX <-- BA of pressKey
+    call WriteString                ; Prints press key prompt
     ret
 PrintEnd ENDP
 
@@ -553,16 +560,16 @@ ClearScreen PROC USES ecx edx
 ; because the Clrscr procedure in the Irvine Library that clears the
 ; entire window was lagging badly.
 ;--------------------------------------------------------------------------
-    mov  ecx,15                     ; i = 15
-    mov  dx,0                       ; Move cursor to (0,0)
+    mov  ecx,15                     ; # of lines to print (Game screen height)
+    mov  dx,0                       ; Set cursor position to (0,0)
     call Gotoxy
-    mov  edx,OFFSET clearStr        ; edx <-- clearString
-L1:
-    call WriteString                ; Print clearString from edx
-    loop L1                         ; Loop back to ClearIt
+    mov  edx,OFFSET clearStr        ; EDX <-- clearString
+ClearLines:
+    call WriteString                ; Print spaces over previous screen
+    loop ClearLines                 ; Dec ECX and jump to ClearLines
 
-    mov  dx,0                       ; Move cursor to (0,0)
-    call Gotoxy
+    mov  dx,0                       ; Set cursor postion to (0,0)
+    call Gotoxy                     ; to set up for next screen
     ret
 ClearScreen ENDP
 
@@ -571,10 +578,12 @@ PrintNewLines PROC
 ; Author: Christian Baker
 ;
 ; Prints the newlines as many times as the number that is in ECX register.
+;
+; Receives: ECX = # of newlines to print
 ;--------------------------------------------------------------------------
-L1:
+PrintLines:
     call Crlf                       ; Print newline
-    loop L1                         ; loop back
+    loop PrintLines                 ; Dec ECX and jump to PrintLines
     ret
 PrintNewLines ENDP
 
