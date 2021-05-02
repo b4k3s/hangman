@@ -1,12 +1,38 @@
 TITLE Hangman         (Hangman.asm)
-
-; Desc TODO
-
+;                                                    ______
+;   _   _                                            |/   |
+;  | | | | __ _ _ __   __ _ _ __ ___   __ _ _ __     |    ()
+;  | |_| |/ _` | '_ \ / _` | '_ ` _ \ / _` | '_ \    |   /||\
+;  |  _  | (_| | | | | (_| | | | | | | (_| | | | |   |    /\
+;  |_| |_|\__,_|_| |_|\__, |_| |_| |_|\__,_|_| |_|   |\
+;                     |___/                         ``````````
+;                              Final Project
+;
+; Version: 1.0
+; Authors: Team C (MASM)
+;   Christian Baker, Anthony Cardona, Luke Shoff, Brendon Stutzman
+;
+; Class: CIS 121 - Assembly Language & Computer Architecture
+; Instructor: Professor Manuel Hidalgo
+; Date: 5 May 2021
+;
+; Description:
+;   Allows the user to play an ASCII art version of the classic game,
+;   Hangman. Shows a main menu where the user can choose to play the
+;   game, quit the program, or see the credits for the game. The game
+;   gives the user 7 wrong letter guesses to find the random word from
+;   the hardcoded word bank. If the user guesses the word before reaching
+;   7 guesses, they win the game. If the user guesses 7 letters and has
+;   not found the word, they lose. All input is entered from the keyboard;
+;   any invalid input is ignored.
+;
+;   * BA in code means base address
+;
 ;--------------------------------------------------------------------------
 INCLUDE Irvine32.inc
-; We made use of the following procedures from Kip Irvine's library:
-;
+; We made use of the following procedures from Kip Irvine's x86 library:
 ;   Crlf            - Prints a newline
+;   Gotoxy          - Moves the cursor to position; DH,DL = row,col
 ;   Randomize       - Seeds the random number generator for RandomRange
 ;   RandomRange     - Generates a rendom # between 0 and value in EAX reg
 ;   ReadChar        - Gets char from keyboard and stores in EAX reg
@@ -17,16 +43,14 @@ INCLUDE Irvine32.inc
 ;--------------------------------------------------------------------------
 
 .data
-theWord         byte    15  DUP(0)
-wrongGuesses    byte    0
-rightGuesses    byte    0
-gameDone        byte    0
+theWord         byte    15  DUP(0)  ; The word to be guessed
+numOfWrong      byte    0           ; # of wrong guesses
+numOfRight      byte    0           ; # of right guesses
+wrongGuesses    byte    7   DUP(0)  ; Array of user's wrong guesses
+rightGuesses    byte    26  DUP(0)  ; Array of user's right guesses
+gameDone        byte    0           ; Bool to tell program if game is done
 
-; Arrays to hold guesses
-wrongArray      byte    7   DUP(0)
-rightArray      byte    26  DUP(0)
-
-; Words to Guess (List made by Brendon Stutzman)
+; Words to Guess (List curated by Brendon Stutzman)
 numOfWords      byte    60
 word00          byte    "DINOSAUR",0
 word01          byte    "BANJO",0
@@ -89,6 +113,7 @@ word57          byte    "LUXURY",0
 word58          byte    "MEGAHERTZ",0
 word59          byte    "YOUTH",0
 
+; Array of the strings above
 wordBank        dword   word00,word01,word02,word03,word04,word05
                 dword   word06,word07,word08,word09,word10,word11
                 dword   word12,word13,word14,word15,word16,word17
@@ -100,7 +125,7 @@ wordBank        dword   word00,word01,word02,word03,word04,word05
                 dword   word48,word49,word50,word51,word52,word53
                 dword   word54,word55,word56,word57,word58,word59
 
-; String of spaces for clearing screen
+; String of spaces used to clear screen
 clearStr        byte    "                                  ",0dh,0ah,0
 
 ; Prompts and Messages
@@ -123,7 +148,7 @@ madeBy          byte    "          Made by:",0dh,0ah,0dh,0ah
                 byte    "      Brendon Stutzman",0dh,0ah,0
 
 ; Gallows Strings
-gallowsTop      byte    "  ______",0dh,0ah
+gallowsTop      byte    0dh,0ah,"  ______",0dh,0ah
                 byte    "  |/   |",0dh,0ah
                 byte    "  |    |",0dh,0ah,0
 gallowsNoose    byte    "  |    O",0dh,0ah,0
@@ -139,7 +164,7 @@ manArms         byte    "  |   /||\",0dh,0ah,0
 manLeg          byte    "  |    /",0dh,0ah,0
 manLegs         byte    "  |    /\",0dh,0ah,0
 
-; End Strings
+; End of Game Strings
 winner          byte    "        You Win! :)",0dh,0ah,0
 loser           byte    "        Game Over :(",0dh,0ah,0
 wordWas         byte    "       The word was",0dh,0ah,"         ",0
@@ -147,46 +172,46 @@ wordWas         byte    "       The word was",0dh,0ah,"         ",0
 .code
 main PROC
 MainMenu:
-    call PrintMenu                  ; print the menu screen
-    call ReadChar                   ; get input char from user
-    cmp  al,'q'                     ; if user input is 'q'...
-    je   QuitGame                   ; then quit game
-    cmp  al,'s'                     ; if user input is 's'...
-    je   PlayGame                   ; then start game
-    cmp  al,'c'                     ; if user input is 'c'...
-    je   CreditScreen               ; then show credits
-    jmp  MainMenu                   ; else loop back to menu
+    call PrintMenu                  ; Print the menu screen
+    call ReadChar                   ; Get input char from user
+    cmp  al,'q'                     ; If user input is 'q'...
+    je   QuitGame                   ; Then quit game
+    cmp  al,'s'                     ; If user input is 's'...
+    je   PlayGame                   ; Then start game
+    cmp  al,'c'                     ; If user input is 'c'...
+    je   CreditScreen               ; Then show credits
+    jmp  MainMenu                   ; Else jump back to MainMenu
 
 PlayGame:
     call ClearScreen
     mov  eax,0                      ; Initialize input for game
-    mov  gameDone,al                ; done    = 0 (false)
-    mov  rightGuesses,al            ; correct = 0
-    mov  wrongGuesses,al            ; wrong   = 0
-    call GetWord                    ; Get random word from list
+    mov  gameDone,al                ; Set gameDone to false (0)
+    mov  numOfRight,al              ; Set # of right guesses to 0
+    mov  numOfWrong,al              ; Set # of wrong guesses to 0
+    call GetWord                    ; Get random word from word bank
 ContGame:
-    call PrintHangman               ; Print ASCII hangman
-    call PrintWord                  ; Print letters of the word
+    call PrintHangman               ; Print ASCII art hangman
+    call PrintWord                  ; Print letters or underscores
     call PrintGuesses               ; Print wrong letters tried
-    mov  edx,OFFSET chooseLetter    ; edx <-- chooseLetter prompt string
-    call WriteString                ; Print string (Irvine)
-    mov  al,gameDone
-    cmp  al,0
-    jg   EndGame
+    mov  edx,OFFSET chooseLetter    ; EDX <-- BA of chooseLetter
+    call WriteString                ; Print user prompt for letter
+    mov  al,gameDone                ; AL <-- gameDone
+    cmp  al,0                       ; If gameDone is true...
+    jg   EndGame                    ; Then go to EndGame
     call ReadChar                   ; Get guessed letter from user
     call CheckChar                  ; Store char if eligible
-    mov  al,gameDone
-    cmp  al,1
-    jl  ContGame                    ; then continue game
+    mov  al,gameDone                ; AL <--gameDone
+    cmp  al,1                       ; If gameDone is false...
+    jl   ContGame                    ; Then go to ContGame
 EndGame:
-    call PrintEnd
-    call ReadChar
-    jmp  MainMenu                   ; else quit to main menu
+    call PrintEnd                   ; Print Win/Lose Screen
+    call ReadChar                   ; Wait for input (Pause)
+    jmp  MainMenu                   ; Jump back to MainMenu
 
 CreditScreen:
     call PrintCredits               ; Print credits
-    call ReadChar                   ; Wait for input
-    jmp  MainMenu                   ; Go back to main menu
+    call ReadChar                   ; Wait for input (Pause)
+    jmp  MainMenu                   ; Jump back to MainMenu
 
 QuitGame:
     call ClearScreen                ; Clear the screen
@@ -198,18 +223,16 @@ PrintMenu PROC USES ecx edx
 ; Author: Luke Shoff
 ;
 ; Prints the menu screen with prompt.
-;
-; Returns: Nothing
 ;--------------------------------------------------------------------------
     call ClearScreen                ; Clear the screen
     mov  ecx,5                      ; Newlines to print = 5
     call PrintNewLines              ; Print newlines
-    mov  edx,OFFSET titleScr        ; Print hangman title and options
-    call WriteString
+    mov  edx,OFFSET titleScr        ; EDX <-- BA of titleScr
+    call WriteString                ; Print Hangman title and options
     mov  ecx,3                      ; Newlines to print = 3
     call PrintNewLines              ; Print newlines
-    mov  edx,OFFSET makeSelect      ; Print make selection prompt string
-    call WriteString
+    mov  edx,OFFSET makeSelect      ; EDX <-- BA of makeSelect
+    call WriteString                ; Print prompt for user selection
     ret
 PrintMenu ENDP
 
@@ -218,37 +241,37 @@ PrintCredits PROC USES ecx edx
 ; Author: Brendon Stutzman
 ;
 ; Prints the team credits screen with prompt.
-;
-; Returns: Nothing
 ;--------------------------------------------------------------------------
     call ClearScreen                ; Clears the screen
-    mov  ecx,5                      ; Prints 5 newlines
-    call PrintNewLines
-    mov  edx,OFFSET madeBy          ; Prints our names
-    call WriteString
-    mov  ecx,3                      ; Prints 3 newlines
-    call PrintNewLines                   
-    mov  edx,OFFSET pressKey        ; Prints "Press Any Key"
-    call WriteString
+    mov  ecx,5                      ; Newlines to print = 5
+    call PrintNewLines              ; Print newlines
+    mov  edx,OFFSET madeBy          ; EDX <-- BA of madeBy
+    call WriteString                ; Print our names
+    mov  ecx,3                      ; Newlines to print = 3
+    call PrintNewLines              ; Print newlines
+    mov  edx,OFFSET pressKey        ; EDX <-- pressKey
+    call WriteString                ; Print prompt for key press
     ret
 PrintCredits ENDP
 
 ;--------------------------------------------------------------------------
-GetWord PROC
+GetWord PROC USES eax ebx esi edi
 ; Author: Christian Baker
 ;
-;
-;
+; Gets a random number between 0 and numOfWords - 1. Selects the
+; corresponding word element from the wordBank string array. Then, copies
+; that random word to theWord to be used for that round of the game.
 ;--------------------------------------------------------------------------
-    mov  al,numOfWords
-    call Randomize
-    call RandomRange
-    mov ebx,4
-    mul ebx
-    mov esi,OFFSET wordBank
-    add esi,eax
-    mov edi,[esi]
-    invoke Str_copy, addr [edi], addr theWord
+    mov  al,numOfWords              ; AL <-- numOfWords
+    call Randomize                  ; Get randomizer seed
+    call RandomRange                ; Get random # btwn 0 and EAX - 1
+    mov  ebx,4                      ; Elements are dwords, so 4 bytes
+    mul  ebx                        ; EAX *= EBX, Gets correct offset
+    mov  esi,OFFSET wordBank        ; ESI <-- BA of wordBank
+    add  esi,eax                    ; ESI += EAX, Go to BA for chosen word
+    mov  edi,[esi]                  ; EDI <-- Dereferenced BA
+    invoke Str_copy,                ; Copy chosen word to theWord
+        addr [edi], addr theWord
     ret
 GetWord ENDP
 
@@ -256,65 +279,67 @@ GetWord ENDP
 PrintHangman PROC USES edx eax
 ; Author: Anthony Cardona
 ;
-; Prints the ASCII hangman character. Checks to see which parts to print
-; based on how many wrong letter guesses that the user has made.
+; Prints the ASCII art Hangman character. Checks to see which parts to
+; print based on how many wrong letter guesses that the user has made.
 ;--------------------------------------------------------------------------
     mov  dx,0                       ; Set cursor position to (0,0)
     call Gotoxy                     ; (Faster than clearing screen)
-    mov  al,wrongGuesses            ; al <-- # of wrong guesses
-    call Crlf                       ; Print newline
-    mov  edx,OFFSET gallowsTop      ; Print top part of gallows
-    call WriteString
+    mov  al,numOfWrong              ; AL <-- numOfWrong
+    mov  edx,OFFSET gallowsTop      ; EDX <-- BA of gallowsTop
+    call WriteString                ; Print top part of gallows
 
+TheHead:
     cmp  al,1                       ; If wrong guesses < 1...
     jl   TheNoose                   ; Then jump to TheNoose
-    mov  edx,OFFSET manHead         ; EDX <-- manHead
+    mov  edx,OFFSET manHead         ; EDX <-- BA of manHead
     jmp  Write1                     ; Jump to Write1
 TheNoose:
-    mov  edx,OFFSET gallowsNoose    ; Else, edx <-- noose
+    mov  edx,OFFSET gallowsNoose    ; EDX <-- BA of gallowsNoose
 Write1:
     call WriteString                ; Print line 1 option from EDX
 
+TwoArms:
     cmp  al,4                       ; If wrong guesses < 4...
     jl   OneArm                     ; Then jump to OneArm
-    mov  edx,OFFSET manArms         ; EDX <-- manArms
+    mov  edx,OFFSET manArms         ; EDX <-- BA manArms
     jmp  Write2                     ; Jump to Write2
 OneArm:
     cmp  al,3                       ; If wrong guesses < 3...
     jl   TheTorso                   ; Then jump to TheTorso
-    mov  edx,OFFSET manArm          ; EDX <-- manArm
+    mov  edx,OFFSET manArm          ; EDX <-- BA of manArm
     jmp  Write2                     ; Jump to Write2
 TheTorso:
     cmp  al,2                       ; If wrong guesses < 2...
     jl   NoTorso                    ; Then jump to NoTorso
-    mov  edx,OFFSET manTorso        ; EDX <-- manTorso
+    mov  edx,OFFSET manTorso        ; EDX <-- BA of manTorso
     jmp  Write2                     ; Jump to Write2
 NoTorso:
-    mov  edx,OFFSET gallowsMid      ; Else, EDX <-- gallowsMid
+    mov  edx,OFFSET gallowsMid      ; EDX <-- gallowsMid
 Write2:
     call WriteString                ; Print line 2 option from EDX
 
+TwoLegs:
     cmp  al,6                       ; If wrong guesses < 6...
     jl   OneLeg                     ; Then jump to OneLeg
-    mov  edx,OFFSET manLegs         ; EDX <-- manLegs
+    mov  edx,OFFSET manLegs         ; EDX <-- BA of manLegs
     jmp  Write3                     ; Jump to Write3
 OneLeg:
     cmp  al,5                       ; If wrong guesses < 5...
     jl   NoLegs                     ; Then jump to NoLegs
-    mov  edx,OFFSET manLeg          ; EDX <-- manLeg
+    mov  edx,OFFSET manLeg          ; EDX <-- BA of manLeg
     jmp  Write3                     ; Jump to Write3
 NoLegs:
-    mov  edx,OFFSET gallowsMid      ; Else, EDX <-- gallowsMid
+    mov  edx,OFFSET gallowsMid      ; EDX <-- BA of gallowsMid
 Write3:
     call WriteString                ; Print line 3 option from EDX
 
-    mov  edx,OFFSET gallowsBase     ; Print bottom part of gallows
-    call WriteString
+    mov  edx,OFFSET gallowsBase     ; EDX <-- BA of gallowsBase
+    call WriteString                ; Print bottom part of gallows
     ret
 PrintHangman ENDP
 
 ;--------------------------------------------------------------------------
-PrintWord PROC
+PrintWord PROC USES eax ecx edx 
 ; Author: Christian Baker
 ;
 ; Fixed.
@@ -326,20 +351,20 @@ PrintWord PROC
     mov  dh,[esi]                   ;
     invoke Str_length, addr theWord ; eax <- length
     mov  ecx,eax                    ;
-OL:
+OuterLoop:
     push ecx
-    mov  edi,OFFSET rightArray
+    mov  edi,OFFSET rightGuesses
     mov  dl,[esi]
-    mov  bl,rightGuesses
+    mov  bl,numOfRight
 
     mov  al,' '
     call WriteChar
 
-    mov  cl,rightGuesses
+    mov  cl,numOfRight
     cmp  cl,0
     jle  UnderScore
 
-IL:
+InnerLoop:
     mov  dh,[edi]
     cmp  dl,dh
     jne  NextCmp
@@ -348,7 +373,7 @@ IL:
     jmp  NextLetter
 NextCmp:
     inc  edi
-    loop IL
+    loop InnerLoop
 
 UnderScore:
     mov  al,'_'
@@ -359,7 +384,7 @@ UnderScore:
 NextLetter:
     inc  esi
     pop  ecx
-    loop OL
+    loop OuterLoop
 
     mov  ecx,3
     call PrintNewlines
@@ -374,8 +399,8 @@ PrintGuesses PROC USES eax ecx edx esi
 ;--------------------------------------------------------------------------
     mov edx,OFFSET triedLetters
     call WriteString
-    mov esi, OFFSET wrongArray
-    mov cl, wrongGuesses            ; moves wrongGuesses into cl reg
+    mov esi, OFFSET wrongGuesses
+    mov cl, numOfWrong              ; moves wrongGuesses into cl reg
     cmp cl,0
     jle ExitLoop
 
@@ -419,8 +444,8 @@ uppercase:
     cmp  bl,'A'
     jl   exitcheck
 
-    mov  esi,OFFSET rightArray
-    mov  cl,rightGuesses
+    mov  esi,OFFSET rightGuesses
+    mov  cl,numOfRight
     cmp  cl,0
     jle  S2
 
@@ -432,7 +457,7 @@ L1:
     loop L1
 
 S2:
-    mov  esi,OFFSET rightArray
+    mov  esi,OFFSET rightGuesses
     mov  edi,OFFSET theWord
     invoke Str_length, addr theWord
     mov  ecx,eax
@@ -442,19 +467,19 @@ L2:
     cmp  bl,dl
     jne  nextchar
     mov  edx,0
-    mov  dl,rightGuesses
+    mov  dl,numOfRight
     add  esi,edx
     mov  [esi],bl
     inc  dl
-    mov  rightGuesses,dl
+    mov  numOfRight,dl
     jmp  exitcheck
 nextchar:
     inc  edi
     loop L2
 
 S3:
-    mov  esi,OFFSET wrongArray
-    mov  cl,wrongGuesses
+    mov  esi,OFFSET wrongGuesses
+    mov  cl,numOfWrong
     cmp  cl,0
     jle  itswrong
 
@@ -466,13 +491,13 @@ L3:
     loop L3
 
 itswrong:
-    mov  esi,OFFSET wrongArray
+    mov  esi,OFFSET wrongGuesses
     mov  edx,0
-    mov  dl,wrongGuesses
+    mov  dl,numOfWrong
     add  esi,edx
     mov  [esi],bl
     inc  dl
-    mov  wrongGuesses,dl
+    mov  numOfWrong,dl
 
     cmp  dl,6
     jle  exitcheck
@@ -493,7 +518,7 @@ PrintEnd PROC
     call ClearScreen                ; Clear the screen
     mov  ecx, 5                     ; Print 5 newlines
     call PrintNewLines
-    mov  AL, wrongGuesses
+    mov  AL, numOfWrong
     cmp  AL, 6                      ; If wrong < 6...
     jle  youwin                     ; Then jump to youwin
     mov  EDX, OFFSET loser          ; Print loser message
