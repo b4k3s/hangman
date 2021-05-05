@@ -25,9 +25,9 @@ TITLE Hangman         (Hangman.asm)
 ;   game, quit the program, or see the credits for the game. The game
 ;   gives the user 7 wrong letter guesses to find the random word from
 ;   the hardcoded word bank. If the user guesses the word before reaching
-;   7 guesses, they win the game. If the user guesses 7 wrong letters and
-;   has not found the word, they lose. All input is entered from the
-;   keyboard; any invalid input is ignored.
+;   7 wrong guesses, they win the game. If the user guesses 7 wrong
+;   letters and has not found the word, they lose. All input is entered
+;   from the keyboard; any invalid input is ignored.
 ;
 ;   * BA in comments stands for base address
 ;
@@ -42,7 +42,7 @@ INCLUDE Irvine32.inc
 ;   Crlf            - Prints a newline
 ;   Gotoxy          - Moves the cursor to position; DH,DL = row,col
 ;   Randomize       - Seeds the random number generator for RandomRange
-;   RandomRange     - Generates a rendom # between 0 and value in EAX reg
+;   RandomRange     - Generates a random # between 0 and value in EAX reg
 ;   ReadChar        - Gets char from keyboard and stores in EAX reg
 ;   Str_copy        - Copies one string variable to another string variable
 ;   Str_length      - Loads the length of a given string into the EAX reg
@@ -264,7 +264,7 @@ PrintCredits ENDP
 
 ;--------------------------------------------------------------------------
 GetWord PROC USES eax ebx esi edi
-; Author: Christian Baker
+; Author: Christian Baker & Anthony Cardona
 ;
 ; Gets a random number between 0 and numOfWords - 1. Selects the
 ; corresponding word element from the wordBank string array. Then, copies
@@ -489,7 +489,7 @@ RightCheck:
     movzx edx,numOfRight            ; EDX <-- numOfRight (zero extended)
     add  esi,edx                    ; ESI += EDX, goto next open rightGuesses spot
     mov  [esi],bl                   ; Write input to rightGuesses array
-    inc  dl                         ; Inc DL (increment num of right guessses)
+    inc  dl                         ; Inc DL (increment num of right guesses)
     mov  numOfRight,dl              ; Write incremented value to numOfRight
     jmp  EndCheck                   ; Input valid and recorded, jump to EndCheck
 NextChar:
